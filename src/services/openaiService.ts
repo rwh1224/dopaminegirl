@@ -27,7 +27,6 @@ interface OpenAIResponse {
 }
 
 export async function generateNextStage(currentState: GameState): Promise<OpenAIResponse> {
-  // 프롬프트에 구체적인 JSON 구조 예시를 추가하여 GPT가 딴소리 못하게 합니다.
   const prompt = `
     게임: 나락의 삶~도파민걸~
     캐릭터: 20세 남성, 자극적인 경험을 쫓는 퀴어 청년.
@@ -59,18 +58,14 @@ export async function generateNextStage(currentState: GameState): Promise<OpenAI
         },
         { role: "user", content: prompt }
       ],
-      // JSON 모드 활성화 (반드시 system 메시지에 JSON 단어가 포함되어야 함)
       response_format: { type: "json_object" }
     });
 
     const content = response.choices[0].message.content;
-    console.log("GPT 원본 응답 확인:", content); // 로그를 찍어 실제 데이터 구조를 확인하세요.
-
     if (!content) throw new Error("Empty response");
 
     const parsed = JSON.parse(content) as OpenAIResponse;
 
-    // 만약 GPT가 응답을 제대로 못 만들었을 때를 대비한 최소한의 방어 로직
     if (!parsed.choices || !Array.isArray(parsed.choices)) {
       throw new Error("Invalid choices format");
     }
@@ -81,4 +76,11 @@ export async function generateNextStage(currentState: GameState): Promise<OpenAI
     console.error("OpenAI Error:", e);
     return {
       story: "나락의 흐름이 잠시 끊겼습니다. 도파민이 부족합니다.",
-      choices
+      choices: [
+        { text: "다시 숨 고르기", impact: 0, consequence: "정신을 가다듬습니다." },
+        { text: "심연으로 뛰어들기", impact: 10, consequence: "운명에 맡깁니다." },
+        { text: "새로고침", impact: -5, consequence: "현실로 돌아옵니다." }
+      ]
+    };
+  }
+}
