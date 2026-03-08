@@ -1,8 +1,3 @@
-import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
-
-const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "";
-const genAI = new GoogleGenerativeAI(API_KEY);
-
 export interface GameChoice {
   text: string;
   impact: number;
@@ -17,62 +12,47 @@ export interface GameState {
   history: string[];
 }
 
-const GAME_SCHEMA = {
-  type: SchemaType.OBJECT,
-  properties: {
-    story: { type: SchemaType.STRING },
-    choices: {
-      type: SchemaType.ARRAY,
-      items: {
-        type: SchemaType.OBJECT,
-        properties: {
-          text: { type: SchemaType.STRING },
-          impact: { type: SchemaType.NUMBER },
-          consequence: { type: SchemaType.STRING }
-        },
-        required: ["text", "impact", "consequence"]
-      }
-    }
-  },
-  required: ["story", "choices"]
-};
-
 export async function generateNextStage(currentState: GameState): Promise<{ story: string; choices: GameChoice[] }> {
-  if (!API_KEY) throw new Error("API Key Missing");
+  const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+  
+  // 1. 라이브러리 대신 직접 구글 API 주소를 사용합니다. (v1beta 대신 v1 사용)
+  const API_URL = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
+
+  const prompt = `나락의 삶~도파민걸~ 게임.
+    현재 스테이지: ${currentState.stage}/10, 게이지: ${currentState.abyssGauge}%.
+    마지막 행동: ${currentState.history[currentState.history.length - 1] || "시작"}.
+    다음 스토리와 선택지 3개를 한국어로 생성해줘. JSON 형식으로만 응답해.`;
 
   try {
-    // [해결책] 모델명을 'gemini-1.5-flash'로 고정하고 불필요한 경로 생성을 막습니다.
-    const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash", 
+    const response = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          responseMimeType: "application/json"
+        }
+      })
     });
 
-    const prompt = `나락의 삶~도파민걸~ 게임.
-      현재 스테이지: ${currentState.stage}/10, 게이지: ${currentState.abyssGauge}%.
-      마지막 행동: ${currentState.history[currentState.history.length - 1] || "시작"}.
-      다음 스토리와 선택지 3개를 한국어로 생성해줘.`;
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(JSON.stringify(errorData));
+    }
 
-    // [중요] 호출 방식을 가장 단순한 형태로 변경하여 v1beta 이슈를 회피합니다.
-    const result = await model.generateContent({
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      generationConfig: {
-        responseMimeType: "application/json",
-        responseSchema: GAME_SCHEMA,
-      }
-    });
-
-    const response = await result.response;
-    return JSON.parse(response.text());
+    const data = await response.json();
+    const text = data.candidates[0].content.parts[0].text;
+    
+    return JSON.parse(text);
 
   } catch (e: any) {
-    console.error("🚨 최종 에러 디버깅:", e);
-    
-    // 에러 발생 시 게임이 멈추지 않게 함
+    console.error("🚨 수동 호출 에러:", e);
     return {
-      story: "데이터 연결이 지연되고 있습니다. (네트워크 상태를 확인하세요)",
+      story: "나락의 심연에서 연결이 끊겼습니다. 다시 시도해주세요.",
       choices: [
-        { text: "다시 시도", impact: 0, consequence: "연결을 재시도합니다." },
-        { text: "평정심 유지", impact: -5, consequence: "차분하게 기다립니다." },
-        { text: "나락 수용", impact: 10, consequence: "흐름에 몸을 맡깁니다." }
+        { text: "정신 차리기", impact: -10, consequence: "간신히 현실로 돌아옵니다." },
+        { text: "운명 수용", impact: 10, consequence: "나락에 몸을 맡깁니다." },
+        { text: "새로고침", impact: 0, consequence: "시간을 되돌립니다." }
       ]
     };
   }
