@@ -1,6 +1,6 @@
 import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 
-// [수정 1] Vite 환경에 맞게 환경 변수 호출 방식을 변경했습니다.
+// 환경 변수 로드
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "";
 const genAI = new GoogleGenerativeAI(API_KEY);
 
@@ -18,22 +18,23 @@ export interface GameState {
   history: string[];
 }
 
-// [수정 2] SchemaType 정의 방식을 최신 라이브러리 규격에 맞췄습니다.
+// JSON 스키마 정의 (Vercel 빌드 및 런타임 안정성 강화)
 const GAME_SCHEMA = {
+  description: "Dopamine Girl Game Stage Schema",
   type: SchemaType.OBJECT,
   properties: {
     story: {
       type: SchemaType.STRING,
-      description: "The current segment of the story. Keep it around 2-3 punchy sentences.",
+      description: "The current story segment (2-3 sentences).",
     },
     choices: {
       type: SchemaType.ARRAY,
       items: {
         type: SchemaType.OBJECT,
         properties: {
-          text: { type: SchemaType.STRING, description: "Descriptive choice text (max 15 words)." },
-          impact: { type: SchemaType.NUMBER, description: "The impact on the abyss gauge (integer between -30 and 30)." },
-          consequence: { type: SchemaType.STRING, description: "Brief summary of the result." }
+          text: { type: SchemaType.STRING, description: "Choice text." },
+          impact: { type: SchemaType.NUMBER, description: "Gauge change (-30 to 30)." },
+          consequence: { type: SchemaType.STRING, description: "Brief outcome." }
         },
         required: ["text", "impact", "consequence"]
       },
@@ -45,12 +46,12 @@ const GAME_SCHEMA = {
 };
 
 export async function generateNextStage(currentState: GameState): Promise<{ story: string; choices: GameChoice[] }> {
+  // 키 확인 (런타임 에러 방지)
   if (!API_KEY) {
-    throw new Error("Vite 환경 변수(VITE_GEMINI_API_KEY)가 설정되지 않았습니다.");
+    throw new Error("API Key가 없습니다. Vercel 환경 변수를 확인하세요.");
   }
 
-  // [수정 3] 모델 명칭을 안정적인 'gemini-1.5-flash'로 변경 (Vercel 무료 티어 권장)
-  const model = genAI.getGenerativeModel({ 
+  const model = genAI.getGenerativeModel({
     model: "gemini-1.5-flash",
     generationConfig: {
       responseMimeType: "application/json",
@@ -65,27 +66,34 @@ export async function generateNextStage(currentState: GameState): Promise<{ stor
     : "";
 
   const prompt = `
-    Game: 나락의 삶~도파민걸~ (Life in the Abyss ~Dopamine Girl~)
-    Character: A 20-year-old male diving into extreme experiences.
+    Game: 나락의 삶~도파민걸~
     Current Stage: ${currentState.stage} / 10
-    Current Abyss Gauge: ${currentState.abyssGauge}%
+    Abyss Gauge: ${currentState.abyssGauge}%
+    Context: ${pathSummary}
+    User's Last Action: "${recentHistory[recentHistory.length - 1] || "Start"}"
+    Previous Scene: "${currentState.story}"
     
-    Context:
-    ${pathSummary}
-    The User's Last Action: "${recentHistory[recentHistory.length - 1]}"
-    The Previous Scene: "${currentState.story}"
-
-    Task: Generate the next part of the story and 3 choices. 
-    Language: Korean (한국어)
+    Task: Generate the next story segment and 3 choices in Korean.
   `;
 
-  const result = await model.generateContent(prompt);
-  const response = await result.response;
-  
   try {
-    return JSON.parse(response.text());
+    const result = await model.generateContent(prompt);
+    const text = result.response.text();
+    
+    // JSON 파싱 전 유효성 검사
+    if (!text) throw new Error("AI가 빈 응답을 반환했습니다.");
+    
+    return JSON.parse(text);
   } catch (e) {
-    console.error("Failed to parse Gemini response", e);
-    throw new Error("AI response parsing failed");
+    console.error("Gemini API Error:", e);
+    // 에러 발생 시 사용자에게 보여줄 기본값 (Fallback)
+    return {
+      story: "알 수 없는 나락의 기운이 몰려옵니다. 다시 시도해보세요.",
+      choices: [
+        { text: "정신 차리기", impact: -10, consequence: "간신히 이성을 되찾습니다." },
+        { text: "운명에 맡기기", impact: 20, consequence: "나락으로 한 발짝 더 다가갑니다." },
+        { text: "도망치기", impact: 0, consequence: "아무 일도 일어나지 않았습니다." }
+      ]
+    };
   }
 }
