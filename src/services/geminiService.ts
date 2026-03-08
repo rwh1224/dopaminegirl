@@ -31,9 +31,7 @@ const GAME_SCHEMA = {
           consequence: { type: SchemaType.STRING }
         },
         required: ["text", "impact", "consequence"]
-      },
-      minItems: 3,
-      maxItems: 3
+      }
     }
   },
   required: ["story", "choices"]
@@ -42,36 +40,39 @@ const GAME_SCHEMA = {
 export async function generateNextStage(currentState: GameState): Promise<{ story: string; choices: GameChoice[] }> {
   if (!API_KEY) throw new Error("API Key Missing");
 
-  // [핵심 수정] 모델명을 'models/gemini-1.5-flash'로 명시적으로 적어줍니다.
-  const model = genAI.getGenerativeModel({
-    model: "models/gemini-1.5-flash", 
-    generationConfig: {
-      responseMimeType: "application/json",
-      responseSchema: GAME_SCHEMA,
-    }
-  });
-
-  const prompt = `나락의 삶~도파민걸~ 게임.
-    현재 스테이지: ${currentState.stage}/10, 게이지: ${currentState.abyssGauge}%.
-    마지막 행동: ${currentState.history[currentState.history.length - 1] || "시작"}.
-    다음 스토리와 선택지 3개를 한국어로 생성해줘.`;
-
   try {
-    const result = await model.generateContent(prompt);
+    // [해결책] 모델명을 'gemini-1.5-flash'로 고정하고 불필요한 경로 생성을 막습니다.
+    const model = genAI.getGenerativeModel({
+      model: "gemini-1.5-flash", 
+    });
+
+    const prompt = `나락의 삶~도파민걸~ 게임.
+      현재 스테이지: ${currentState.stage}/10, 게이지: ${currentState.abyssGauge}%.
+      마지막 행동: ${currentState.history[currentState.history.length - 1] || "시작"}.
+      다음 스토리와 선택지 3개를 한국어로 생성해줘.`;
+
+    // [중요] 호출 방식을 가장 단순한 형태로 변경하여 v1beta 이슈를 회피합니다.
+    const result = await model.generateContent({
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      generationConfig: {
+        responseMimeType: "application/json",
+        responseSchema: GAME_SCHEMA,
+      }
+    });
+
     const response = await result.response;
-    const text = response.text();
-    
-    return JSON.parse(text);
+    return JSON.parse(response.text());
+
   } catch (e: any) {
-    console.error("🚨 상세 에러 발생:", e);
+    console.error("🚨 최종 에러 디버깅:", e);
     
-    // 에러가 나면 다음 단계로 강제 진행을 위해 기본값 반환
+    // 에러 발생 시 게임이 멈추지 않게 함
     return {
-      story: "서버 연결이 불안정하여 잠시 나락의 기운이 흩어졌습니다.",
+      story: "데이터 연결이 지연되고 있습니다. (네트워크 상태를 확인하세요)",
       choices: [
-        { text: "다시 정신 차리기", impact: -5, consequence: "간신히 현실로 돌아옵니다." },
-        { text: "심호흡하기", impact: 0, consequence: "평정심을 되찾습니다." },
-        { text: "운명에 맡기기", impact: 10, consequence: "다시 흐름에 몸을 던집니다." }
+        { text: "다시 시도", impact: 0, consequence: "연결을 재시도합니다." },
+        { text: "평정심 유지", impact: -5, consequence: "차분하게 기다립니다." },
+        { text: "나락 수용", impact: 10, consequence: "흐름에 몸을 맡깁니다." }
       ]
     };
   }
