@@ -1,11 +1,13 @@
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+// [수정 1] Vite 환경에 맞게 환경 변수 호출 방식을 변경했습니다.
+const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "";
+const genAI = new GoogleGenerativeAI(API_KEY);
 
 export interface GameChoice {
   text: string;
-  impact: number; // How much the abyss gauge changes (-20 to +30)
-  consequence: string; // Brief description of what happens
+  impact: number;
+  consequence: string;
 }
 
 export interface GameState {
@@ -16,21 +18,22 @@ export interface GameState {
   history: string[];
 }
 
+// [수정 2] SchemaType 정의 방식을 최신 라이브러리 규격에 맞췄습니다.
 const GAME_SCHEMA = {
-  type: Type.OBJECT,
+  type: SchemaType.OBJECT,
   properties: {
     story: {
-      type: Type.STRING,
+      type: SchemaType.STRING,
       description: "The current segment of the story. Keep it around 2-3 punchy sentences.",
     },
     choices: {
-      type: Type.ARRAY,
+      type: SchemaType.ARRAY,
       items: {
-        type: Type.OBJECT,
+        type: SchemaType.OBJECT,
         properties: {
-          text: { type: Type.STRING, description: "Descriptive choice text (max 15 words)." },
-          impact: { type: Type.NUMBER, description: "The impact on the abyss gauge (integer between -30 and 30)." },
-          consequence: { type: Type.STRING, description: "Brief summary of the result." }
+          text: { type: SchemaType.STRING, description: "Descriptive choice text (max 15 words)." },
+          impact: { type: SchemaType.NUMBER, description: "The impact on the abyss gauge (integer between -30 and 30)." },
+          consequence: { type: SchemaType.STRING, description: "Brief summary of the result." }
         },
         required: ["text", "impact", "consequence"]
       },
@@ -42,7 +45,20 @@ const GAME_SCHEMA = {
 };
 
 export async function generateNextStage(currentState: GameState): Promise<{ story: string; choices: GameChoice[] }> {
-  // Token optimization: Only use the last 2 history items and a summary of the path
+  if (!API_KEY) {
+    throw new Error("Vite 환경 변수(VITE_GEMINI_API_KEY)가 설정되지 않았습니다.");
+  }
+
+  // [수정 3] 모델 명칭을 안정적인 'gemini-1.5-flash'로 변경 (Vercel 무료 티어 권장)
+  const model = genAI.getGenerativeModel({ 
+    model: "gemini-1.5-flash",
+    generationConfig: {
+      responseMimeType: "application/json",
+      responseSchema: GAME_SCHEMA,
+    },
+    systemInstruction: "You are a chaotic game master for a queer-themed adult adventure. The story (Scene) should be logical and grounded in the gay/queer subculture (Itaewon, Jongno, IvanCity, etc.). However, the choices must be unpredictable, extreme, and non-logical impulses. Focus on raw dopamine, identity shifts, and shocking actions. IMPORTANT: Avoid any gory, bloody, or physically violent content in the choices."
+  });
+
   const recentHistory = currentState.history.slice(-2);
   const pathSummary = currentState.history.length > 2 
     ? `[Path Summary: ${currentState.history.slice(0, -2).join(", ")}]` 
@@ -60,42 +76,14 @@ export async function generateNextStage(currentState: GameState): Promise<{ stor
     The Previous Scene: "${currentState.story}"
 
     Task: Generate the next part of the story and 3 choices. 
-    
-    CRITICAL: The next story segment MUST be a direct, logical, and immediate consequence of the "User's Last Action". 
-    It should feel like a continuous narrative where the user's choice just happened.
-    
-    - Story: Exactly 2-3 punchy, descriptive sentences.
-    - Choices: Descriptive but concise (max 10 words).
-    
-    The STORY (Scene) MUST be logical, coherent, and grounded in the character's life as a 20-year-old gay male. 
-    Focus on specific queer contexts: Itaewon clubs, Jongno-3ga, IvanCity encounters, meeting strangers, identity shifts, and the underground gay scene.
-
-    The CHOICES MUST be ABSURD, EXTREME, and NON-LOGICAL impulses that arise from the situation.
-    They should represent sudden, shocking, or life-altering decisions related to identity, sex, or social chaos.
-
-    Abyss Gauge Impact Rules (CHAOS MODE):
-    - Impacts are UNPREDICTABLE (-30 to +30). 
-    - Extreme actions can crash the dopamine or skyrocket it.
-    - DO NOT follow moral or logical patterns.
-
     Language: Korean (한국어)
-    Tone: Intense, queer-focused, chaotic, and immersive.
-    
-    CONSTRAINT: DO NOT include any gory, bloody, or physically violent choices (e.g., "피투성이가 된다"). Focus on social, emotional, or identity-based chaos instead.
   `;
 
-  const response = await ai.models.generateContent({
-    model: "gemini-3.1-pro-preview",
-    contents: prompt,
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: GAME_SCHEMA,
-      systemInstruction: "You are a chaotic game master for a queer-themed adult adventure. The story (Scene) should be logical and grounded in the gay/queer subculture (Itaewon, Jongno, IvanCity, etc.). However, the choices must be unpredictable, extreme, and non-logical impulses. Focus on raw dopamine, identity shifts, and shocking actions. IMPORTANT: Avoid any gory, bloody, or physically violent content in the choices."
-    },
-  });
-
+  const result = await model.generateContent(prompt);
+  const response = await result.response;
+  
   try {
-    return JSON.parse(response.text || "{}");
+    return JSON.parse(response.text());
   } catch (e) {
     console.error("Failed to parse Gemini response", e);
     throw new Error("AI response parsing failed");
