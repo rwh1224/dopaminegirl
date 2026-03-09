@@ -46,7 +46,7 @@ export async function generateNextStage(currentState: GameState): Promise<Gemini
 
   try {
     const model = genAI.getGenerativeModel({
-      model: "gemini-2.5-flash",
+      model: "gemini-3.1-pro-preview",
       systemInstruction:
         "당신은 퀴어 어드벤처 게임의 혼돈스러운 게임마스터입니다. 반드시 'story'와 3개의 'choices' 배열을 포함한 순수 JSON 객체로만 응답하십시오. 마크다운 코드블록(```)을 절대 사용하지 마십시오.",
       generationConfig: {
