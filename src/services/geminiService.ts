@@ -66,7 +66,7 @@ export async function generateNextStage(currentState: GameState): Promise<{ stor
        - e.g., "Join a stranger's breakup argument," "Declare yourself a diva and hijack the karaoke stage," "Ask a trans sister to rename you on the spot," or "Throw your phone into a glass of cocktail."
 
     [Rules]
-    - Language: Korean (Use authentic slang: 이반, 일반, 부치, 팸, 끼순이, etc.)
+    - Language: Korean (Use authentic slang: 이반, 일반, 탑, 바텀, 레즈, 끼순이, etc.)
     - NO physical violence/gore. Focus on social, emotional, and identity-based chaos.
     - Impacts: Unpredictable (-30 to +30).
   `;
