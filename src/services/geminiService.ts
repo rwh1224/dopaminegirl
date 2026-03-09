@@ -60,7 +60,7 @@ export async function generateNextStage(currentState: GameState): Promise<{ stor
 
     [Task: Break the Pattern]
     1. Expand the Map: Move the story to specific vibes—the humid, crowded Jongno-3ga pojangmacha (street stalls), a neon-soaked Nonhyeon karaoke, or a sophisticated yet underground queer cocktail bar.
-    2. Diverse Encounters: Introduce strong characters like a charismatic lesbian "Unnie" (leader type), a mysterious transgender performer, or a seasoned stall owner who knows everyone's secrets.
+    2. Diverse Encounters: Introduce strong characters like a charismatic gay "Unnie" (leader type), a mysterious transgender performer, or a seasoned stall owner who knows everyone's secrets.
     3. Narrative: 2-3 punchy Korean sentences. It must feel like an immediate consequence of the "Last Action."
     4. Chaotic Choices: Avoid repetitive "drink more" options. Provide 3 ABSURD, NON-LOGICAL impulses: 
        - e.g., "Join a stranger's breakup argument," "Declare yourself a diva and hijack the karaoke stage," "Ask a trans sister to rename you on the spot," or "Throw your phone into a glass of cocktail."
