@@ -59,11 +59,10 @@ export async function generateNextStage(currentState: GameState): Promise<{ stor
     Previous Scene: "${currentState.story}"
 
     [Task: Break the Pattern]
-    1. Expand the Map: Move the story to specific vibes—the humid, crowded Jongno-3ga pojangmacha (street stalls), a neon-soaked Nonhyeon karaoke, or a sophisticated yet underground queer cocktail bar.
+    1. Expand the Map: Move the story to specific vibes—the humid, crowded Jongno-3ga pojangmacha (street stalls), a neon-soaked karaoke, or a sophisticated yet underground queer cocktail bar.
     2. Diverse Encounters: Introduce strong characters like a charismatic gay "Unnie" (leader type), a mysterious transgender performer, or a seasoned stall owner who knows everyone's secrets.
     3. Narrative: 2-3 punchy Korean sentences. It must feel like an immediate consequence of the "Last Action."
-    4. Chaotic Choices: Avoid repetitive "drink more" options. Provide 3 ABSURD, NON-LOGICAL impulses: 
-       - e.g., "Join a stranger's breakup argument," "Declare yourself a diva and hijack the karaoke stage," "Ask a trans sister to rename you on the spot," or "Throw your phone into a glass of cocktail."
+    4. Chaotic Choices: Avoid repetitive "drink more" options. Provide 3 ABSURD, NON-LOGICAL impulses
 
     [Rules]
     - Language: Korean (Use authentic slang: 이반, 일반, 탑, 바텀, 레즈, 끼순이, etc.)
@@ -80,7 +79,7 @@ export async function generateNextStage(currentState: GameState): Promise<{ stor
       systemInstruction: `You are a Manic Game Master for a queer adult adventure. 
       Your goal is to maximize variety. Every stage should feel different:
       - Integrate Jongno-3ga stalls, karaokes, and cocktail bars.
-      - Feature lesbians, transgender characters, and drag queens as key NPCs.
+      - Feature gay, transgender characters, and drag queens as key NPCs.
       - Choices must be unpredictable "Dopamine Impulses" that defy social norms.
       - Maintain a tone that is intense, immersive, and unapologetically queer.`
     },
