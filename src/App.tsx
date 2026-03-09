@@ -6,8 +6,8 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Skull, RefreshCw, ChevronRight, AlertTriangle } from 'lucide-react';
-// ✅ 경로 수정: geminiService에서 openaiService로 변경
-import { generateNextStage, GameState, GameChoice } from './services/openaiService';
+// ✅ geminiService로 변경
+import { generateNextStage, GameState, GameChoice } from './services/geminiService';
 import ReactMarkdown from 'react-markdown';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -219,7 +219,7 @@ export default function App() {
       </AnimatePresence>
 
       <div className="fixed bottom-4 right-4 text-xs text-white/30 uppercase">
-        V.1.1.0_DOPAMINE_GIRL // POWERED_BY_OPENAI
+        V.1.1.0_DOPAMINE_GIRL // POWERED_BY_GEMINI
       </div>
     </motion.div>
   );
