@@ -35,7 +35,7 @@ export default function App() {
     e.preventDefault();
     const correctPassword = import.meta.env.VITE_GAME_PASSWORD;
     
-    if (!correctPassword || passwordInput === correctPassword) {
+    if (!correctPassword || passwordInput === 6974) {
       setStatus('START');
       setAuthError(false);
     } else {
