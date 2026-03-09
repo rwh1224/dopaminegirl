@@ -1,11 +1,7 @@
-import OpenAI from "openai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const API_KEY = (import.meta.env.VITE_OPENAI_API_KEY as string) || "";
-
-const openai = new OpenAI({
-  apiKey: API_KEY,
-  dangerouslyAllowBrowser: true 
-});
+const API_KEY = (import.meta.env.VITE_GEMINI_API_KEY as string) || "";
+const genAI = new GoogleGenerativeAI(API_KEY);
 
 export interface GameChoice {
   text: string;
@@ -21,12 +17,12 @@ export interface GameState {
   history: string[];
 }
 
-interface OpenAIResponse {
+interface GeminiResponse {
   story: string;
   choices: GameChoice[];
 }
 
-export async function generateNextStage(currentState: GameState): Promise<OpenAIResponse> {
+export async function generateNextStage(currentState: GameState): Promise<GeminiResponse> {
   const prompt = `
     게임: 나락의 삶~도파민걸~
     캐릭터: 20세 남성, 자극적인 경험을 쫓는 퀴어 청년.
@@ -37,7 +33,7 @@ export async function generateNextStage(currentState: GameState): Promise<OpenAI
     [임무]
     위 상황을 이어받아 다음 스토리와 3개의 선택지를 생성하라.
     
-    [응답 형식 예시]
+    [응답 형식 - 반드시 JSON만 출력, 마크다운 블록 없이]
     {
       "story": "다음 스토리 내용...",
       "choices": [
@@ -49,38 +45,38 @@ export async function generateNextStage(currentState: GameState): Promise<OpenAI
   `;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        { 
-          role: "system", 
-          content: "당신은 퀴어 어드벤처 게임의 혼돈스러운 게임마스터입니다. 반드시 'story'와 3개의 'choices' 배열을 포함한 JSON 객체로만 응답하십시오." 
-        },
-        { role: "user", content: prompt }
-      ],
-      response_format: { type: "json_object" }
+    const model = genAI.getGenerativeModel({
+      model: "gemini-1.5-flash",
+      systemInstruction:
+        "당신은 퀴어 어드벤처 게임의 혼돈스러운 게임마스터입니다. 반드시 'story'와 3개의 'choices' 배열을 포함한 순수 JSON 객체로만 응답하십시오. 마크다운 코드블록(```)을 절대 사용하지 마십시오.",
+      generationConfig: {
+        responseMimeType: "application/json",
+      },
     });
 
-    const content = response.choices[0].message.content;
+    const result = await model.generateContent(prompt);
+    const content = result.response.text();
+
     if (!content) throw new Error("Empty response");
 
-    const parsed = JSON.parse(content) as OpenAIResponse;
+    // 혹시 모를 마크다운 펜스 제거
+    const cleaned = content.replace(/```json|```/g, "").trim();
+    const parsed = JSON.parse(cleaned) as GeminiResponse;
 
     if (!parsed.choices || !Array.isArray(parsed.choices)) {
       throw new Error("Invalid choices format");
     }
 
     return parsed;
-
   } catch (e) {
-    console.error("OpenAI Error:", e);
+    console.error("Gemini Error:", e);
     return {
       story: "나락의 흐름이 잠시 끊겼습니다. 도파민이 부족합니다.",
       choices: [
         { text: "다시 숨 고르기", impact: 0, consequence: "정신을 가다듬습니다." },
         { text: "심연으로 뛰어들기", impact: 10, consequence: "운명에 맡깁니다." },
-        { text: "새로고침", impact: -5, consequence: "현실로 돌아옵니다." }
-      ]
+        { text: "새로고침", impact: -5, consequence: "현실로 돌아옵니다." },
+      ],
     };
   }
 }
