@@ -1,7 +1,7 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI, Type } from "@google/genai";
 
-const API_KEY = (import.meta.env.VITE_GEMINI_API_KEY as string) || "";
-const genAI = new GoogleGenerativeAI(API_KEY);
+const aiApiKey = import.meta.env.VITE_GEMINI_API_KEY || "";
+const ai = new GoogleGenAI({ apiKey: aiApiKey });
 
 export interface GameChoice {
   text: string;
