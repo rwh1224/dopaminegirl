@@ -43,6 +43,7 @@ const GAME_SCHEMA = {
 };
 
 export async function generateNextStage(currentState: GameState): Promise<{ story: string; choices: GameChoice[] }> {
+  // Token optimization: Only use the last 2 history items and a summary of the path
   const recentHistory = currentState.history.slice(-2);
   const pathSummary = currentState.history.length > 2 
     ? `[Path Summary: ${currentState.history.slice(0, -2).join(", ")}]` 
@@ -50,24 +51,38 @@ export async function generateNextStage(currentState: GameState): Promise<{ stor
 
   const prompt = `
     Game: 나락의 삶~도파민걸~ (Life in the Abyss ~Dopamine Girl~)
-    Character: 20-year-old male exploring the chaotic fringes of queer life.
-    Stage: ${currentState.stage} / 10 | Current Abyss Gauge: ${currentState.abyssGauge}%
+    Character: A 20-year-old male diving into extreme experiences.
+    Current Stage: ${currentState.stage} / 10
+    Current Abyss Gauge: ${currentState.abyssGauge}%
     
-    [Context]
+    Context:
     ${pathSummary}
-    User's Last Action: "${recentHistory[recentHistory.length - 1]}"
-    Previous Scene: "${currentState.story}"
+    The User's Last Action: "${recentHistory[recentHistory.length - 1]}"
+    The Previous Scene: "${currentState.story}"
 
-    [Task: Break the Pattern]
-    1. Expand the Map: Move the story to specific vibes—the humid, crowded Jongno-3ga pojangmacha (street stalls), a neon-soaked karaoke, or a sophisticated yet underground queer cocktail bar.
-    2. Diverse Encounters: Introduce strong characters like a charismatic gay "Unnie" (leader type), a mysterious transgender performer, or a seasoned stall owner who knows everyone's secrets.
-    3. Narrative: 2-3 punchy Korean sentences. It must feel like an immediate consequence of the "Last Action."
-    4. Chaotic Choices: Avoid repetitive "drink more" options. Provide 3 ABSURD, NON-LOGICAL impulses
+    Task: Generate the next part of the story and 3 choices. 
+    
+    CRITICAL: The next story segment MUST be a direct, logical, and immediate consequence of the "User's Last Action". 
+    It should feel like a continuous narrative where the user's choice just happened.
+    
+    - Story: Exactly 2-3 punchy, descriptive sentences.
+    - Choices: Descriptive but concise (max 10 words).
+    
+    The STORY (Scene) MUST be logical, coherent, and grounded in the character's life as a 20-year-old gay male. 
+    Focus on specific queer contexts: Itaewon clubs, Jongno-3ga, IvanCity encounters, meeting strangers, identity shifts, and the underground gay scene.
 
-    [Rules]
-    - Language: Korean (Use authentic slang: 이반, 일반, 탑, 바텀, 레즈, 끼순이, etc.)
-    - NO physical violence/gore. Focus on social, emotional, and identity-based chaos.
-    - Impacts: Unpredictable (-30 to +30).
+    The CHOICES MUST be ABSURD, EXTREME, and NON-LOGICAL impulses that arise from the situation.
+    They should represent sudden, shocking, or life-altering decisions related to identity, sex, or social chaos.
+
+    Abyss Gauge Impact Rules (CHAOS MODE):
+    - Impacts are UNPREDICTABLE (-30 to +30). 
+    - Extreme actions can crash the dopamine or skyrocket it.
+    - DO NOT follow moral or logical patterns.
+
+    Language: Korean (한국어)
+    Tone: Intense, queer-focused, chaotic, and immersive.
+    
+    CONSTRAINT: DO NOT include any gory, bloody, or physically violent choices (e.g., "피투성이가 된다"). Focus on social, emotional, or identity-based chaos instead.
   `;
 
   const response = await ai.models.generateContent({
@@ -76,12 +91,7 @@ export async function generateNextStage(currentState: GameState): Promise<{ stor
     config: {
       responseMimeType: "application/json",
       responseSchema: GAME_SCHEMA,
-      systemInstruction: `You are a Manic Game Master for a queer adult adventure. 
-      Your goal is to maximize variety. Every stage should feel different:
-      - Integrate Jongno-3ga stalls, karaokes, and cocktail bars.
-      - Feature gay, transgender characters, and drag queens as key NPCs.
-      - Choices must be unpredictable "Dopamine Impulses" that defy social norms.
-      - Maintain a tone that is intense, immersive, and unapologetically queer.`
+      systemInstruction: "You are a chaotic game master for a queer-themed adult adventure. The story (Scene) should be logical and grounded in the gay/queer subculture (Itaewon, Jongno, IvanCity, etc.). However, the choices must be unpredictable, extreme, and non-logical impulses. Focus on raw dopamine, identity shifts, and shocking actions. IMPORTANT: Avoid any gory, bloody, or physically violent content in the choices."
     },
   });
 
