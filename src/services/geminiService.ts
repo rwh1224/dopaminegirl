@@ -5,8 +5,8 @@ const genAI = new GoogleGenerativeAI(API_KEY);
 
 export interface GameChoice {
   text: string;
-  impact: number;
-  consequence: string;
+  impact: number; // How much the abyss gauge changes (-20 to +30)
+  consequence: string; // Brief description of what happens
 }
 
 export interface GameState {
@@ -17,66 +17,88 @@ export interface GameState {
   history: string[];
 }
 
-interface GeminiResponse {
-  story: string;
-  choices: GameChoice[];
-}
-
-export async function generateNextStage(currentState: GameState): Promise<GeminiResponse> {
-  const prompt = `
-    게임: 나락의 삶~도파민걸~
-    캐릭터: 20세 남성, 자극적인 경험을 쫓는 퀴어 청년.
-    현재 상황: 스테이지 ${currentState.stage}/10, 나락 게이지 ${currentState.abyssGauge}%
-    마지막 로그: "${currentState.history[currentState.history.length - 1] || "시작"}"
-    이전 장면: "${currentState.story}"
-
-    [임무]
-    위 상황을 이어받아 다음 스토리와 3개의 선택지를 생성하라.
-    
-    [응답 형식 - 반드시 JSON만 출력, 마크다운 블록 없이]
-    {
-      "story": "다음 스토리 내용...",
-      "choices": [
-        { "text": "강렬한 선택 1", "impact": 10, "consequence": "결과 설명" },
-        { "text": "위험한 선택 2", "impact": 20, "consequence": "결과 설명" },
-        { "text": "차분한 선택 3", "impact": -10, "consequence": "결과 설명" }
-      ]
+const GAME_SCHEMA = {
+  type: Type.OBJECT,
+  properties: {
+    story: {
+      type: Type.STRING,
+      description: "The current segment of the story. Keep it around 2-3 punchy sentences.",
+    },
+    choices: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          text: { type: Type.STRING, description: "Descriptive choice text (max 15 words)." },
+          impact: { type: Type.NUMBER, description: "The impact on the abyss gauge (integer between -30 and 30)." },
+          consequence: { type: Type.STRING, description: "Brief summary of the result." }
+        },
+        required: ["text", "impact", "consequence"]
+      },
+      minItems: 3,
+      maxItems: 3,
     }
+  },
+  required: ["story", "choices"]
+};
+
+export async function generateNextStage(currentState: GameState): Promise<{ story: string; choices: GameChoice[] }> {
+  // Token optimization: Only use the last 2 history items and a summary of the path
+  const recentHistory = currentState.history.slice(-2);
+  const pathSummary = currentState.history.length > 2 
+    ? `[Path Summary: ${currentState.history.slice(0, -2).join(", ")}]` 
+    : "";
+
+  const prompt = `
+    Game: 나락의 삶~도파민걸~ (Life in the Abyss ~Dopamine Girl~)
+    Character: A 20-year-old male diving into extreme experiences.
+    Current Stage: ${currentState.stage} / 10
+    Current Abyss Gauge: ${currentState.abyssGauge}%
+    
+    Context:
+    ${pathSummary}
+    The User's Last Action: "${recentHistory[recentHistory.length - 1]}"
+    The Previous Scene: "${currentState.story}"
+
+    Task: Generate the next part of the story and 3 choices. 
+    
+    CRITICAL: The next story segment MUST be a direct, logical, and immediate consequence of the "User's Last Action". 
+    It should feel like a continuous narrative where the user's choice just happened.
+    
+    - Story: Exactly 2-3 punchy, descriptive sentences.
+    - Choices: Descriptive but concise (max 10 words).
+    
+    The STORY (Scene) MUST be logical, coherent, and grounded in the character's life as a 20-year-old gay male. 
+    Focus on specific queer contexts: Itaewon clubs, Jongno-3ga, IvanCity encounters, meeting strangers, identity shifts, and the underground gay scene.
+
+    The CHOICES MUST be ABSURD, EXTREME, and NON-LOGICAL impulses that arise from the situation.
+    They should represent sudden, shocking, or life-altering decisions related to identity, sex, or social chaos.
+
+    Abyss Gauge Impact Rules (CHAOS MODE):
+    - Impacts are UNPREDICTABLE (-30 to +30). 
+    - Extreme actions can crash the dopamine or skyrocket it.
+    - DO NOT follow moral or logical patterns.
+
+    Language: Korean (한국어)
+    Tone: Intense, queer-focused, chaotic, and immersive.
+    
+    CONSTRAINT: DO NOT include any gory, bloody, or physically violent choices (e.g., "피투성이가 된다"). Focus on social, emotional, or identity-based chaos instead.
   `;
 
+  const response = await ai.models.generateContent({
+    model: "gemini-3.1-pro-preview",
+    contents: prompt,
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: GAME_SCHEMA,
+      systemInstruction: "You are a chaotic game master for a queer-themed adult adventure. The story (Scene) should be logical and grounded in the gay/queer subculture (Itaewon, Jongno, IvanCity, etc.). However, the choices must be unpredictable, extreme, and non-logical impulses. Focus on raw dopamine, identity shifts, and shocking actions. IMPORTANT: Avoid any gory, bloody, or physically violent content in the choices."
+    },
+  });
+
   try {
-    const model = genAI.getGenerativeModel({
-      model: "gemini-3.1-pro-preview",
-      systemInstruction:
-        "당신은 퀴어 어드벤처 게임의 혼돈스러운 게임마스터입니다. 반드시 'story'와 3개의 'choices' 배열을 포함한 순수 JSON 객체로만 응답하십시오. 마크다운 코드블록(```)을 절대 사용하지 마십시오.",
-      generationConfig: {
-        responseMimeType: "application/json",
-      },
-    });
-
-    const result = await model.generateContent(prompt);
-    const content = result.response.text();
-
-    if (!content) throw new Error("Empty response");
-
-    // 혹시 모를 마크다운 펜스 제거
-    const cleaned = content.replace(/```json|```/g, "").trim();
-    const parsed = JSON.parse(cleaned) as GeminiResponse;
-
-    if (!parsed.choices || !Array.isArray(parsed.choices)) {
-      throw new Error("Invalid choices format");
-    }
-
-    return parsed;
+    return JSON.parse(response.text || "{}");
   } catch (e) {
-    console.error("Gemini Error:", e);
-    return {
-      story: "나락의 흐름이 잠시 끊겼습니다. 도파민이 부족합니다.",
-      choices: [
-        { text: "다시 숨 고르기", impact: 0, consequence: "정신을 가다듬습니다." },
-        { text: "심연으로 뛰어들기", impact: 10, consequence: "운명에 맡깁니다." },
-        { text: "새로고침", impact: -5, consequence: "현실로 돌아옵니다." },
-      ],
-    };
+    console.error("Failed to parse Gemini response", e);
+    throw new Error("AI response parsing failed");
   }
 }
